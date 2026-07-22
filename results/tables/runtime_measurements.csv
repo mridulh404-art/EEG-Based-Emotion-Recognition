@@ -1,0 +1,5 @@
+Stage,Milliseconds
+Training,6308.0293
+Inference_per_sample,126.401718644068
+Feature_extraction_per_window,314.4544
+End_to_end_per_window,440.856118644068
