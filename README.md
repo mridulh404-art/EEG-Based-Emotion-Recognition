@@ -82,7 +82,7 @@ leave-one-subject-out cross-validation.
   don't systematically cluster along either the arousal or valence
   dimension, suggesting the feature set captures genuine 4-way emotional
   structure rather than only one underlying dimension.
-- **Per-subject accuracy varies widely (53%–97%)** — some individuals'
+- **Per-subject accuracy varies widely (31%–97%)** — some individuals'
   EEG separates emotional states far more cleanly than others', a real
   pattern rather than noise (see per-subject chart below).
 - **A single-channel-cluster artifact can break classification, and a
@@ -90,7 +90,6 @@ leave-one-subject-out cross-validation.
   example, with the honest caveat that this only works when *some*
   clean channels remain.
 
----
 
 ## Results
 
@@ -102,7 +101,6 @@ Raw EEG filtered into alpha (8-13Hz) and beta (13-30Hz) bands for one
 real channel/trial, confirming the filtering pipeline produces
 physiologically plausible output before scaling to the full dataset.
 
----
 
 ### Model Comparison — Random-Fold vs. Leave-One-Subject-Out
 
@@ -117,7 +115,6 @@ physiologically plausible output before scaling to the full dataset.
 Random Forest is both the best-performing model and the most robust to
 the validation-leakage effect seen across all three.
 
----
 
 ### Confusion Matrix & Per-Subject Performance (Random Forest, LOSO)
 
@@ -147,7 +144,52 @@ Accuracy ranges from 31% (subject 26) to 96.6% (subject 17) — well
 above chance for the great majority of subjects, but with meaningful
 individual variation worth investigating further (see Future Work).
 
----
+### Validated Protocol (Train/Validation/Test Split)
+To confirm the reported accuracy wasn't dependent on an untuned
+hyperparameter choice, Random Forest was re-evaluated using proper
+3-way separation: within each LOSO fold, the 27 non-test subjects were
+further split by subject (80/20) into train and validation sets: the
+validation set selected the number of trees (25/50/100/150) via grid
+search, and the held-out test subject was touched only once, for final
+evaluation.
+
+| Metric | Value |
+|---|---|
+| Mean test accuracy | 0.8131 ± 0.1110 |
+| Original (untuned, 100 trees) | 0.8037 ± 0.1166 |
+| Most frequently selected NumTrees | 150 |
+
+The near-identical result confirms the original 100-tree configuration
+was already close to optimal, rather than accuracy depending on a
+lucky hyperparameter choice. See
+`results/tables/validated_split_results.csv`.
+
+### Deep Learning Comparison (LSTM on Raw Signal)
+
+To test whether a deep sequence model could outperform feature-engineered
+classical methods, a small regularized LSTM (32 hidden units, dropout 0.4)
+was trained directly on raw 14-channel EEG sequences (not hand-crafted
+features), using a subject-level train(20)/validation(4)/test(4) split.
+Full 28-fold LOSO was not computationally practical for a deep model on
+CPU within reasonable time, so this uses a single held-out split instead
+-- still subject-independent, but a lighter-weight protocol than the
+LOSO validation used for the other three models.
+
+| Model | Input | Test Accuracy (same 4 held-out subjects) |
+|---|---|---|
+| LSTM (32 units, dropout 0.4) | Raw signal | 0.4417 |
+| Random Forest | Band-power features | **0.8125** |
+
+The LSTM's validation accuracy plateaued around 34-40% within 5 epochs
+before early stopping, rather than continuing to improve -- consistent
+with insufficient independent training subjects (20) for a deep model
+to learn generalizable temporal patterns from raw signal. This result
+reinforces the ablation finding above: for small-N EEG emotion datasets,
+domain-informed feature engineering (band power + per-subject
+normalization) is more effective than raw-signal deep learning, a
+pattern consistent with prior literature on data-constrained EEG
+classification. See `results/tables/lstm_vs_rf_comparison.csv` and
+`results/tables/lstm_subject_split.csv`.
 
 ### Ablation Study — What Actually Mattered
 
@@ -164,7 +206,58 @@ model performance — a ~42-point jump — while adding theta/gamma bands
 alone contributed roughly 1 point.
 
 ---
+### Multi-Level Feature Importance Analysis
 
+**Band-wise:**
+
+![Band importance](results/figures/band_importance.png)
+
+| Band | Total OOB Permuted Importance |
+|---|---|
+| Beta (13-30Hz) | 22.09 |
+| Theta (4-8Hz) | 18.10 |
+| Gamma (30-45Hz) | 17.67 |
+| Alpha (8-13Hz) | 16.57 |
+
+Beta leads modestly — plausible given its established association with
+active cognitive engagement and alertness, both relevant to gameplay-
+induced emotional states. All four bands contribute meaningfully (no
+single band dominates), consistent with the ablation finding above that
+adding theta/gamma provided only a small accuracy gain over alpha+beta
+alone.
+
+**Channel-wise:**
+
+![Channel importance](results/figures/channel_importance.png)
+
+Top individual channels: T8, P7, O2, F8 — notably, three of the four
+top performers are *not* frontal electrodes, despite frontal regions
+being commonly emphasized in EEG-emotion literature.
+
+**Region-wise (corrected for channel count):**
+
+![Region importance corrected](results/figures/region_importance_corrected.png)
+
+| Region | Avg. Importance per Channel | # Channels |
+|---|---|---|
+| Temporal | 6.04 | 2 |
+| Parietal | 5.74 | 2 |
+| Occipital | 5.46 | 2 |
+| Frontal | 4.99 | 8 |
+
+**Important methodological note:** a naive sum of importance across all
+14 channels' regions makes Frontal appear dominant (39.9 total) simply
+because it contains 8 of the 14 channels, versus 2 each for the other
+three regions. Normalizing to *average importance per channel* reverses
+this — Temporal, Parietal, and Occipital each edge out Frontal on a
+per-electrode basis. This is a useful reminder that unequal channel
+coverage across regions (a property of the Emotiv EPOC+ montage itself,
+not a modeling choice) can distort naive regional comparisons if not
+corrected for.
+
+**Subject-wise:** see the per-subject accuracy analysis above.
+
+---
 ### Artifact Robustness
 
 ![Artifact robustness](results/figures/phase5_artifact_robustness.png)
@@ -193,7 +286,6 @@ realistic multi-channel artifact broke it.
 Measured on desktop hardware (MATLAB R2024b); not tested on embedded
 hardware. See `results/tables/runtime_measurements.csv`.
 
----
 
 ## Literature Comparison
 
@@ -210,7 +302,6 @@ of that result was not available to confirm whether similar leakage was
 controlled for. See `results/tables/literature_comparison.md` for the
 full note.
 
----
 
 ## Conclusion
 
@@ -223,6 +314,50 @@ quantifying two ways EEG-emotion pipelines commonly overstate performance
 — overlapping-window leakage and naive random-fold cross-validation — and
 showing that per-subject normalization, not model complexity or band
 selection, is what actually closes the resulting gap.
+
+## Limitations
+
+- **Dataset size and diversity**: 28 subjects is modest by machine
+  learning standards, though comparable to or larger than many published
+  EEG-emotion studies. All subjects were recruited under a single
+  protocol (Emotiv EPOC+, 4 specific games); findings may not generalize
+  to other EEG hardware, electrode counts, or emotion-elicitation methods
+  (e.g. film clips, music, real-world stressors) without further
+  validation.
+- **Deep learning comparison used a lighter validation protocol.** The
+  LSTM comparison used a single subject-level train/validation/test split
+  rather than full leave-one-subject-out, due to CPU training time
+  constraints. This makes the LSTM result directionally informative but
+  statistically weaker evidence than the LOSO-validated results for
+  SVM/RF/NN. A GPU-accelerated or more heavily optimized LSTM might
+  narrow the gap, though the magnitude of underperformance observed
+  (44.2% vs. 81.25% on identical test subjects) makes a full reversal
+  under LOSO unlikely.
+- **Ground-truth emotion labels are inferred from game genre, not
+  continuously self-reported.** Each 5-minute recording is labeled by
+  the intended emotional target of its game (e.g. "horror" for Slender:
+  The Arrival), not by moment-to-moment subjective report. The dataset
+  does include post-hoc SAM (Self-Assessment Manikin) arousal/valence
+  ratings per game, which could be used to verify or refine labels in
+  future work, but were not used here.
+- **Per-subject accuracy variation (31%-97%) is observed but not
+  explained.** This project did not investigate whether this variation
+  correlates with the SAM self-ratings, individual differences in EEG
+  signal quality, or other factors -- flagged in Future Work.
+- **Artifact robustness testing used one synthetic corruption scenario**
+  (broadband noise across 4 of 14 channels). Real-world artifacts
+  (eye blinks, muscle tension, movement, electrode displacement) vary
+  widely in signature and severity; the rejection method's performance
+  under other artifact types or full-channel corruption was not tested
+  and is not guaranteed.
+- **Computational cost was measured on desktop hardware only.** The
+  "faster than real-time" claim has not been validated on embedded or
+  wearable hardware, where memory and processing constraints differ
+  substantially from a desktop CPU.
+- **Window size (5 seconds) was chosen to avoid the overlapping-window
+  leakage identified during dataset selection, not optimized for
+  classification performance.** Shorter or longer windows, or an
+  overlap-aware validation scheme, were not systematically compared.
 
 ## Future Work
 
@@ -250,6 +385,7 @@ https://data.mendeley.com/datasets/b3pn4kwpmn/3
 - MATLAB R2024b (or compatible)
 - Signal Processing Toolbox
 - Statistics and Machine Learning Toolbox
+- Deep Learning Toolbox
 
 ## Project Structure (this public repository)
 

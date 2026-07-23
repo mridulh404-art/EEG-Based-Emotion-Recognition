@@ -1,0 +1,3 @@
+Model,TestAccuracy
+LSTM_raw_signal,0.441737288135593
+RandomForest_bandpower,0.8125
