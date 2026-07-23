@@ -358,7 +358,15 @@ selection, is what actually closes the resulting gap.
   leakage identified during dataset selection, not optimized for
   classification performance.** Shorter or longer windows, or an
   overlap-aware validation scheme, were not systematically compared.
-
+- **Cross-dataset validation was attempted but not completed.** A
+  second, differently-instrumented open dataset was evaluated for use
+  (see Future Work), but was excluded after determining that its
+  emotion-condition labels could not be reliably verified from available
+  documentation. This project's findings are therefore validated on
+  GAMEEMO only, and the normalization/feature-importance findings
+  should be treated as hypotheses to test on other datasets, not yet
+  confirmed to generalize across hardware/paradigms.
+  
 ## Future Work
 
 - Test on additional datasets (e.g. DEAP, SEED) pending institutional
@@ -371,7 +379,17 @@ selection, is what actually closes the resulting gap.
   severities and channel-coverage levels
 - Deploy the pipeline on actual embedded/edge hardware to validate the
   real-time-capability claim beyond desktop measurement
-
+- A second open-access dataset (Kumar et al., 2026, "An EEG Dataset for
+  Brainwave Recording During Emotion Elicitation via Video Clips" — 30
+  subjects, 8-channel Unicorn Hybrid Black, CC BY 4.0) was identified and
+  downloaded as a candidate for cross-dataset validation. However, the
+  available documentation did not specify which of the 12 raw recording
+  files per subject corresponds to which emotion condition, and no
+  associated peer-reviewed paper confirming this mapping was found.
+  Rather than assume an unverified mapping, this dataset was not used.
+  Verifying the file-to-emotion mapping via manual video review (or
+  contacting the dataset authors directly) is a clear, concrete next
+  step for genuine cross-dataset validation.
 ---
 
 ## Notes on Dataset Availability
