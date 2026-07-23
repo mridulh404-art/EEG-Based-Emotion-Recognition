@@ -164,6 +164,50 @@ was already close to optimal, rather than accuracy depending on a
 lucky hyperparameter choice. See
 `results/tables/validated_split_results.csv`.
 
+### Sensitivity Analysis
+
+To test whether results depend on specific, somewhat arbitrary
+hyperparameter choices, window size and filter order were each varied
+independently and re-evaluated under the same LOSO protocol.
+
+**Window size:**
+
+| Window Size | Mean LOSO Accuracy | Std | # Windows |
+|---|---|---|---|
+| 3 sec | 0.7801 | 0.1260 | 11,088 |
+| 5 sec (used throughout this work) | 0.8037 | 0.1166 | 6,608 |
+| 10 sec | **0.8396** | 0.1047 | 3,248 |
+
+Accuracy improves and variance decreases with longer windows, consistent
+with more stable band-power estimates from more samples per window. The
+5-second window used throughout this project was chosen specifically to
+avoid the overlapping-window leakage identified during dataset selection
+(see Key Findings), not to maximize accuracy -- a 10-second window would
+likely have performed slightly better. This is disclosed rather than
+retroactively switched to, since all other results in this project use
+the 5-second configuration; a longer window is a reasonable direction
+for future work.
+
+**Filter order:**
+
+| Filter Order | Mean LOSO Accuracy | Std |
+|---|---|---|
+| 2 | 0.8075 | 0.1100 |
+| 4 (used throughout this work) | 0.8037 | 0.1166 |
+| 6 | 0.8119 | 0.1113 |
+
+Filter order has negligible effect on accuracy (range: 80.4%-81.2%,
+well within each configuration's own confidence interval), indicating
+the pipeline is robust to this choice rather than dependent on a
+specific, arbitrarily-tuned value.
+
+**Normalization:** already tested in the Ablation Study above (with vs.
+without per-subject z-score normalization), showing it is by far the
+most impactful of the three factors tested here.
+
+See `results/tables/window_size_sensitivity.csv` and
+`results/tables/filter_order_sensitivity.csv`.
+
 ### Deep Learning Comparison (LSTM on Raw Signal)
 
 To test whether a deep sequence model could outperform feature-engineered
@@ -257,6 +301,21 @@ corrected for.
 
 **Subject-wise:** see the per-subject accuracy analysis above.
 
+**SHAP validation of feature importance:**
+
+![SHAP top features](results/figures/shap_top_features.png)
+
+To validate the permutation-based importance findings above with an
+independent method, SHAP (SHapley Additive exPlanations) values were
+computed for the final Random Forest model on a stratified sample of
+200 observations. The results corroborate the permutation-importance
+findings: `T8` (temporal) dominates the top features (T8_gamma,
+T8_theta, T8_alpha, T8_beta all appear in the top 6), consistent with
+T8's #1 ranking in the earlier channel-wise permutation importance
+analysis. Two independent explainability methods agreeing on the same
+top channel strengthens confidence that this is a genuine signal
+property, not an artifact of one particular importance metric. See
+`results/tables/shap_importance.csv`.
 ---
 ### Artifact Robustness
 
@@ -397,6 +456,16 @@ selection, is what actually closes the resulting gap.
 The GAMEEMO dataset is not included in this repository. It is freely
 available (no license request required) from Mendeley Data:
 https://data.mendeley.com/datasets/b3pn4kwpmn/3
+
+## Code Availability
+
+Full source code (preprocessing, feature extraction, model training,
+and evaluation scripts) is currently maintained in a private companion
+repository and will be made public following peer review / publication.
+This is a temporary, deliberate choice — not a limitation of what
+exists — made to protect submission priority prior to publication.
+Reviewers or collaborators needing earlier access to verify methodology
+can request it directly.
 
 ## Requirements
 
